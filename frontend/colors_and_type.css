@@ -1,0 +1,315 @@
+/*
+ * Job Agent Design System — Colors & Typography
+ * Warm pastel palette: sand, terracotta, sage, amber
+ * Inspired by the candidate's dual background: analytical precision + human warmth
+ */
+
+/* ─── Google Fonts Import ──────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+/* ─── Base Color Tokens ────────────────────────────────────────────────────── */
+:root {
+
+  /* Sand / Cream — primary backgrounds */
+  --sand-50:  oklch(98% 0.012 75);    /* #fdf9f2 — page bg */
+  --sand-100: oklch(95% 0.018 75);    /* #f5edd8 — card bg */
+  --sand-200: oklch(90% 0.025 75);    /* #e8d9be — subtle borders */
+  --sand-300: oklch(83% 0.030 75);    /* #d4bf99 — dividers */
+  --sand-400: oklch(74% 0.035 75);    /* #b8a07a — muted text */
+  --sand-500: oklch(64% 0.038 75);    /* #9a8060 — medium emphasis */
+
+  /* Terracotta — primary accent */
+  --terra-100: oklch(92% 0.040 40);   /* #f5dfd5 — light tint */
+  --terra-200: oklch(84% 0.070 40);   /* #e8bfaa — soft */
+  --terra-300: oklch(73% 0.100 40);   /* #cc9070 — mid */
+  --terra-400: oklch(62% 0.120 40);   /* #b36b48 — primary accent */
+  --terra-500: oklch(52% 0.130 40);   /* #8f4e2e — deep */
+  --terra-600: oklch(42% 0.120 40);   /* #6b3520 — darkest */
+
+  /* Sage — success / positive states */
+  --sage-100: oklch(93% 0.030 155);   /* #dff0e4 — light */
+  --sage-200: oklch(84% 0.055 155);   /* #b8d9c0 — soft */
+  --sage-300: oklch(71% 0.085 155);   /* #7eb898 — mid */
+  --sage-400: oklch(57% 0.100 155);   /* #4d9470 — primary */
+  --sage-500: oklch(45% 0.095 155);   /* #2d6e50 — deep */
+
+  /* Amber — warning / score highlight */
+  --amber-100: oklch(95% 0.045 85);   /* #fdf0ca — light */
+  --amber-200: oklch(88% 0.090 85);   /* #f5d978 — soft */
+  --amber-300: oklch(78% 0.130 85);   /* #e0b830 — mid */
+  --amber-400: oklch(68% 0.140 85);   /* #c49500 — primary */
+  --amber-500: oklch(55% 0.130 85);   /* #9a7000 — deep */
+
+  /* Mist Blue — neutral info tint */
+  --mist-100: oklch(94% 0.022 230);   /* #e4edf5 — light */
+  --mist-200: oklch(86% 0.040 230);   /* #c0d4e8 — soft */
+  --mist-300: oklch(72% 0.065 230);   /* #7faac8 — mid */
+  --mist-400: oklch(58% 0.080 230);   /* #4d7fa8 — primary */
+
+  /* Ink — text colors (warm-tinted, not pure black) */
+  --ink-900: oklch(18% 0.018 60);     /* #1c1510 — heading, primary text */
+  --ink-700: oklch(32% 0.020 60);     /* #3a2d22 — body text */
+  --ink-500: oklch(50% 0.022 60);     /* #6b5a48 — secondary text */
+  --ink-300: oklch(70% 0.020 60);     /* #a08a78 — placeholder, disabled */
+  --ink-100: oklch(88% 0.015 60);     /* #d8cec4 — hairline borders */
+
+  /* ─── Semantic Color Tokens ──────────────────────────────────────────────── */
+
+  /* Surfaces */
+  --color-bg:             var(--sand-50);
+  --color-surface:        var(--sand-100);
+  --color-surface-raised: #ffffff;
+  --color-border:         var(--sand-200);
+  --color-border-strong:  var(--sand-300);
+
+  /* Text */
+  --color-text-primary:   var(--ink-900);
+  --color-text-body:      var(--ink-700);
+  --color-text-secondary: var(--ink-500);
+  --color-text-muted:     var(--ink-300);
+
+  /* Brand / Interactive */
+  --color-accent:         var(--terra-400);
+  --color-accent-soft:    var(--terra-100);
+  --color-accent-hover:   var(--terra-500);
+  --color-accent-text:    #ffffff;
+
+  /* States */
+  --color-success:        var(--sage-400);
+  --color-success-soft:   var(--sage-100);
+  --color-warning:        var(--amber-400);
+  --color-warning-soft:   var(--amber-100);
+  --color-info:           var(--mist-400);
+  --color-info-soft:      var(--mist-100);
+  --color-danger:         oklch(55% 0.18 25);   /* muted red */
+  --color-danger-soft:    oklch(96% 0.04 25);
+
+  /* Status badges */
+  --color-status-applied:   var(--mist-400);
+  --color-status-applied-bg: var(--mist-100);
+  --color-status-interview: var(--amber-400);
+  --color-status-interview-bg: var(--amber-100);
+  --color-status-offer:     var(--sage-400);
+  --color-status-offer-bg:  var(--sage-100);
+  --color-status-rejected:  var(--ink-300);
+  --color-status-rejected-bg: oklch(94% 0.008 60);
+
+  /* Score chip colors (0–10) */
+  --color-score-high:   var(--sage-400);     /* 8–10 */
+  --color-score-mid:    var(--amber-400);    /* 5–7 */
+  --color-score-low:    var(--color-danger); /* 0–4 */
+
+}
+
+/* ─── Typography Tokens ────────────────────────────────────────────────────── */
+:root {
+
+  /* Font families */
+  --font-display:  'DM Serif Display', Georgia, 'Times New Roman', serif;
+  --font-body:     'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono:     'DM Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Type scale (Major Third — 1.250) */
+  --text-xs:   0.64rem;    /* 10.2px */
+  --text-sm:   0.8rem;     /* 12.8px */
+  --text-base: 1rem;       /* 16px   */
+  --text-md:   1.25rem;    /* 20px   */
+  --text-lg:   1.563rem;   /* 25px   */
+  --text-xl:   1.953rem;   /* 31.2px */
+  --text-2xl:  2.441rem;   /* 39px   */
+  --text-3xl:  3.052rem;   /* 48.8px */
+
+  /* Font weights */
+  --weight-light:   300;
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold: 600;
+
+  /* Line heights */
+  --leading-tight:  1.2;
+  --leading-snug:   1.4;
+  --leading-base:   1.6;
+  --leading-relaxed: 1.75;
+
+  /* Letter spacing */
+  --tracking-tight:  -0.02em;
+  --tracking-normal:  0em;
+  --tracking-wide:    0.04em;
+  --tracking-widest:  0.12em;
+
+}
+
+/* ─── Semantic Typography ──────────────────────────────────────────────────── */
+:root {
+
+  /* Display — hero headlines */
+  --type-display-size:    var(--text-3xl);
+  --type-display-weight:  var(--weight-regular);
+  --type-display-leading: var(--leading-tight);
+  --type-display-family:  var(--font-display);
+  --type-display-color:   var(--color-text-primary);
+
+  /* H1 — page title */
+  --type-h1-size:    var(--text-2xl);
+  --type-h1-weight:  var(--weight-regular);
+  --type-h1-leading: var(--leading-tight);
+  --type-h1-family:  var(--font-display);
+
+  /* H2 — section header */
+  --type-h2-size:    var(--text-xl);
+  --type-h2-weight:  var(--weight-medium);
+  --type-h2-leading: var(--leading-snug);
+  --type-h2-family:  var(--font-body);
+
+  /* H3 — card title */
+  --type-h3-size:    var(--text-lg);
+  --type-h3-weight:  var(--weight-medium);
+  --type-h3-leading: var(--leading-snug);
+  --type-h3-family:  var(--font-body);
+
+  /* H4 — label / sub-section */
+  --type-h4-size:    var(--text-base);
+  --type-h4-weight:  var(--weight-semibold);
+  --type-h4-leading: var(--leading-base);
+  --type-h4-family:  var(--font-body);
+
+  /* Body — default prose */
+  --type-body-size:    var(--text-base);
+  --type-body-weight:  var(--weight-regular);
+  --type-body-leading: var(--leading-base);
+  --type-body-family:  var(--font-body);
+
+  /* Small — secondary text, captions */
+  --type-small-size:    var(--text-sm);
+  --type-small-weight:  var(--weight-regular);
+  --type-small-leading: var(--leading-snug);
+  --type-small-family:  var(--font-body);
+
+  /* Label — UI labels, tags, overlines */
+  --type-label-size:     var(--text-xs);
+  --type-label-weight:   var(--weight-medium);
+  --type-label-leading:  var(--leading-tight);
+  --type-label-tracking: var(--tracking-widest);
+  --type-label-family:   var(--font-body);
+
+  /* Code — inline/block code */
+  --type-code-size:    var(--text-sm);
+  --type-code-weight:  var(--weight-regular);
+  --type-code-leading: var(--leading-base);
+  --type-code-family:  var(--font-mono);
+
+}
+
+/* ─── Spacing & Layout Tokens ──────────────────────────────────────────────── */
+:root {
+
+  /* Spacing scale (base 4px) */
+  --space-1:  0.25rem;   /* 4px  */
+  --space-2:  0.5rem;    /* 8px  */
+  --space-3:  0.75rem;   /* 12px */
+  --space-4:  1rem;      /* 16px */
+  --space-5:  1.25rem;   /* 20px */
+  --space-6:  1.5rem;    /* 24px */
+  --space-8:  2rem;      /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+  --space-20: 5rem;      /* 80px */
+
+  /* Border radius */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
+
+  /* Shadows — warm-tinted, soft */
+  --shadow-xs:  0 1px 2px oklch(0% 0 0 / 0.06);
+  --shadow-sm:  0 2px 6px oklch(0% 0 0 / 0.08);
+  --shadow-md:  0 4px 14px oklch(0% 0 0 / 0.10);
+  --shadow-lg:  0 8px 28px oklch(0% 0 0 / 0.12);
+  --shadow-xl:  0 16px 48px oklch(0% 0 0 / 0.15);
+
+  /* Card shadow — warm tint */
+  --shadow-card: 0 2px 8px oklch(40% 0.05 60 / 0.10), 0 1px 2px oklch(40% 0.05 60 / 0.08);
+  --shadow-card-hover: 0 6px 20px oklch(40% 0.05 60 / 0.14), 0 2px 6px oklch(40% 0.05 60 / 0.10);
+
+  /* Elevation */
+  --elevation-0: none;
+  --elevation-1: var(--shadow-xs);
+  --elevation-2: var(--shadow-sm);
+  --elevation-3: var(--shadow-md);
+  --elevation-4: var(--shadow-lg);
+
+}
+
+/* ─── Motion Tokens ────────────────────────────────────────────────────────── */
+:root {
+
+  --ease-out:       cubic-bezier(0.16, 1, 0.3, 1);   /* snappy deceleration */
+  --ease-in-out:    cubic-bezier(0.45, 0, 0.55, 1);  /* smooth transitions */
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1); /* gentle overshoot */
+
+  --duration-fast:   120ms;
+  --duration-base:   200ms;
+  --duration-slow:   360ms;
+  --duration-slower: 500ms;
+
+}
+
+/* ─── Utility Classes ──────────────────────────────────────────────────────── */
+
+/* Apply base styles when this CSS is loaded */
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-body);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-size: var(--type-h1-size);
+  font-weight: var(--type-h1-weight);
+  line-height: var(--type-h1-leading);
+  color: var(--color-text-primary);
+}
+h2 {
+  font-family: var(--font-body);
+  font-size: var(--type-h2-size);
+  font-weight: var(--type-h2-weight);
+  line-height: var(--type-h2-leading);
+  color: var(--color-text-primary);
+}
+h3 {
+  font-family: var(--font-body);
+  font-size: var(--type-h3-size);
+  font-weight: var(--type-h3-weight);
+  line-height: var(--type-h3-leading);
+  color: var(--color-text-primary);
+}
+h4 {
+  font-family: var(--font-body);
+  font-size: var(--type-h4-size);
+  font-weight: var(--type-h4-weight);
+  line-height: var(--type-h4-leading);
+  color: var(--color-text-primary);
+}
+p {
+  font-family: var(--font-body);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-leading);
+  color: var(--color-text-body);
+}
+code, pre {
+  font-family: var(--font-mono);
+  font-size: var(--type-code-size);
+}
+small {
+  font-size: var(--type-small-size);
+  color: var(--color-text-secondary);
+}
