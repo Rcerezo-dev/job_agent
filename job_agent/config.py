@@ -31,13 +31,17 @@ LOCATION = "Madrid"
 # Cover letter tone: "formal" | "direct" | "startup"
 TONE = "formal"
 
-CSV_FILE = DATA_DIR / "jobs.csv"
-USER_NAME  = os.getenv("USER_NAME",  "Your Name")
-USER_EMAIL = os.getenv("USER_EMAIL", "")
-USER_PHONE = os.getenv("USER_PHONE", "")
-USER_CITY  = os.getenv("USER_CITY",  "")
-LINKEDIN   = os.getenv("LINKEDIN",   "")
-GITHUB_URL = os.getenv("GITHUB_URL", "")
+CSV_FILE           = DATA_DIR / "jobs.csv"
+NOTIFICATIONS_FILE = PROJECT_ROOT / "notifications.md"
+
+USER_NAME          = os.getenv("USER_NAME",          "Your Name")
+USER_EMAIL         = os.getenv("USER_EMAIL",         "")
+USER_PHONE         = os.getenv("USER_PHONE",         "")
+USER_CITY          = os.getenv("USER_CITY",          "")
+LINKEDIN           = os.getenv("LINKEDIN",           "")
+GITHUB_URL         = os.getenv("GITHUB_URL",         "")
+GMAIL_USER         = os.getenv("GMAIL_USER",         "")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 
 SKILLS = [
     # ML / Deep Learning

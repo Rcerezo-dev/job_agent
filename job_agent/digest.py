@@ -3,6 +3,7 @@ Daily job digest — run standalone to get a markdown summary of today's top 5 n
 Uses only keyword scoring (fast, no LLM) so it's cheap to schedule.
 
     python -m job_agent.digest
+    python -m job_agent.digest --silent   # no auto-open, returns job list
 """
 import os
 import platform
@@ -17,7 +18,13 @@ from config import PROJECT_ROOT
 DIGEST_FILE = PROJECT_ROOT / "digest.md"
 
 
-def run():
+def run(silent: bool = False) -> list[dict]:
+    """
+    Scrape, keyword-score, and write digest.md.
+    Returns the full list of new scored jobs (not just top 5) so callers
+    can filter by score threshold for escalation.
+    silent=True skips auto-opening the file.
+    """
     jobs = search_jobs()
 
     for job in jobs:
@@ -52,16 +59,20 @@ def run():
     DIGEST_FILE.write_text("\n".join(lines), encoding="utf-8")
     print(f"Digest written → digest.md  ({len(top5)} jobs shown, {len(jobs)} total new)")
 
-    try:
-        if platform.system() == "Windows":
-            os.startfile(str(DIGEST_FILE))
-        elif platform.system() == "Darwin":
-            subprocess.run(["open", str(DIGEST_FILE)], check=False)
-        else:
-            subprocess.run(["xdg-open", str(DIGEST_FILE)], check=False)
-    except Exception:
-        pass
+    if not silent:
+        try:
+            if platform.system() == "Windows":
+                os.startfile(str(DIGEST_FILE))
+            elif platform.system() == "Darwin":
+                subprocess.run(["open", str(DIGEST_FILE)], check=False)
+            else:
+                subprocess.run(["xdg-open", str(DIGEST_FILE)], check=False)
+        except Exception:
+            pass
+
+    return jobs
 
 
 if __name__ == "__main__":
-    run()
+    import sys
+    run(silent="--silent" in sys.argv)

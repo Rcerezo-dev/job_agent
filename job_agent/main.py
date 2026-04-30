@@ -20,11 +20,18 @@ def main():
         "--goal", default=_DEFAULT_GOAL,
         help="What the agent should accomplish (agent mode only)",
     )
+    parser.add_argument(
+        "--monitor", action="store_true",
+        help="Run silent scheduled mode: digest + Gmail scan + escalation",
+    )
     args = parser.parse_args()
 
     if args.manual:
         from pipeline import run_pipeline
         run_pipeline()
+    elif args.monitor:
+        from scheduled_run import run as run_scheduled
+        run_scheduled()
     else:
         from agent import run
         run(args.goal, auto=args.auto)

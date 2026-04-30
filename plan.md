@@ -150,13 +150,12 @@ The agent learns from past outcomes across runs.
 
 ---
 
-## Phase 9 — Autonomous scheduled runs
+## Phase 9 — Autonomous scheduled runs  ✅
 
-- [ ] Scheduled daily scrape — writes `digest.md` with top 5 new jobs
-- [ ] Use Gmail MCP (already connected) to scan inbox for application replies
-  and auto-update status in `applied.csv`
-- [ ] Agent escalates to user only for high-score jobs (≥ 8) or when a reply
-  is detected — everything else runs silently
+- [x] Scheduled daily scrape — writes `digest.md` with top 5 new jobs
+- [x] Gmail IMAP scan for application replies — auto-updates status in `applied.csv`
+- [x] Agent escalates to user only for high-score jobs (≥ 8) or when a reply
+  is detected — everything else runs silently (writes to `notifications.md`)
 
 ---
 
