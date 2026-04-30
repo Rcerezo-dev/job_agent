@@ -3,8 +3,17 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).parent
-load_dotenv(BASE_DIR.parent / ".env")
+BASE_DIR         = Path(__file__).parent           # job_agent/
+PROJECT_ROOT     = BASE_DIR.parent                  # Agente/
+DATA_DIR         = PROJECT_ROOT / "data"            # Agente/data/
+OUTPUTS_DIR      = PROJECT_ROOT / "outputs"         # Agente/outputs/
+CACHE_DIR        = PROJECT_ROOT / "cache"           # Agente/cache/
+APPLICATIONS_DIR = PROJECT_ROOT / "applications"    # Agente/applications/
+
+load_dotenv(PROJECT_ROOT / ".env")
+
+for _d in (DATA_DIR, OUTPUTS_DIR, CACHE_DIR, APPLICATIONS_DIR):
+    _d.mkdir(exist_ok=True)
 
 KEYWORDS = [
     "ai engineer junior",
@@ -19,7 +28,10 @@ KEYWORDS = [
 
 LOCATION = "Madrid"
 
-CSV_FILE = BASE_DIR / "jobs.csv"
+# Cover letter tone: "formal" | "direct" | "startup"
+TONE = "formal"
+
+CSV_FILE = DATA_DIR / "jobs.csv"
 USER_NAME  = os.getenv("USER_NAME",  "Your Name")
 USER_EMAIL = os.getenv("USER_EMAIL", "")
 USER_PHONE = os.getenv("USER_PHONE", "")

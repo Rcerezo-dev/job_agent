@@ -2,10 +2,9 @@ import os
 import platform
 import subprocess
 from datetime import date
-from pathlib import Path
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
@@ -17,11 +16,8 @@ from job_reader import get_job_text
 from llm_client import ask_llm, detect_language
 from config import (
     EDUCATION, EXPERIENCE, GITHUB_PROJECTS, GITHUB_URL, LANGUAGES,
-    LINKEDIN, SKILLS, USER_CITY, USER_EMAIL, USER_NAME, USER_PHONE,
+    LINKEDIN, OUTPUTS_DIR, SKILLS, TONE, USER_CITY, USER_EMAIL, USER_NAME, USER_PHONE,
 )
-
-BASE_DIR  = Path(__file__).parent
-OUTPUTS_DIR = BASE_DIR / "outputs"
 
 # ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +77,10 @@ _tech_tags = ParagraphStyle(
 _lang_level = ParagraphStyle(
     "LangLevel", fontName="Helvetica", fontSize=9.5,
     textColor=_GRAY,
+)
+_contact_right = ParagraphStyle(
+    "ContactRight", fontName="Helvetica", fontSize=8.5,
+    textColor=_GRAY, alignment=TA_RIGHT, leading=13,
 )
 _letter_body = ParagraphStyle(
     "LetterBody", fontName="Helvetica", fontSize=10,
@@ -145,6 +145,38 @@ def _contact_line(*parts):
     filled = [p for p in parts if p and "tuemail" not in p and "tuperfil" not in p
               and "tuusuario" not in p and "Tunombre" not in p and "XXX" not in p]
     return "   ·   ".join(filled)
+
+def _header_table(include_github=True):
+    """Name on the left, contact details stacked on the right."""
+    parts = [USER_CITY, USER_PHONE, USER_EMAIL, LINKEDIN]
+    if include_github:
+        parts.append(GITHUB_URL)
+    lines = [p for p in parts if p and "tuemail" not in p and "tuperfil" not in p
+             and "tuusuario" not in p and "Tunombre" not in p and "XXX" not in p]
+
+    right_w = PAGE_W * 0.45
+    # One paragraph per item so ReportLab never splits a URL at a slash
+    contact_rows = [[Paragraph(line, _contact_right)] for line in lines]
+    contact_tbl = Table(contact_rows, colWidths=[right_w])
+    contact_tbl.setStyle(TableStyle([
+        ("TOPPADDING",    (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+    ]))
+
+    tbl = Table(
+        [[Paragraph(USER_NAME, _name), contact_tbl]],
+        colWidths=[PAGE_W * 0.55, right_w],
+    )
+    tbl.setStyle(TableStyle([
+        ("VALIGN",        (0, 0), (-1, -1), "BOTTOM"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+    ]))
+    return tbl
 
 def _experience_block(entry):
     """Returns a list of flowables for one experience entry."""
@@ -236,10 +268,7 @@ def create_cv_pdf(path, job, summary, skills, projects):
     story = []
 
     # Header
-    story.append(Paragraph(USER_NAME, _name))
-    contact = _contact_line(USER_CITY, USER_PHONE, USER_EMAIL, LINKEDIN, GITHUB_URL)
-    if contact:
-        story.append(Paragraph(contact, _contact))
+    story.append(_header_table(include_github=True))
     story.append(Spacer(1, 4*mm))
     story.append(_rule())
 
@@ -287,14 +316,48 @@ def create_cv_pdf(path, job, summary, skills, projects):
     _doc(path).build(story)
 
 
+def create_cv_txt(path, job, summary, skills, projects):
+    """Plain-text CV for portals that don't accept file uploads."""
+    contact = "  ·  ".join(p for p in [USER_CITY, USER_PHONE, USER_EMAIL, LINKEDIN, GITHUB_URL] if p)
+    sep = "-" * 50
+    lines = [
+        USER_NAME, contact, "",
+        "PROFESSIONAL SUMMARY", sep, summary, "",
+        "TARGET POSITION", sep,
+        f"{job['title']} at {job['company']}", "",
+        "PROFESSIONAL EXPERIENCE", sep,
+    ]
+    for e in EXPERIENCE:
+        lines.append(f"{e['role']}  |  {e['company']}  |  {e['period']}")
+        for b in e.get("bullets", []):
+            lines.append(f"  • {b}")
+        lines.append("")
+    if projects:
+        lines += ["SELECTED PROJECTS", sep]
+        for p in projects:
+            lines.append(p["name"])
+            lines.append(f"  {p['description']}")
+            if p.get("tech"):
+                lines.append(f"  Tech: {', '.join(p['tech'])}")
+            lines.append("")
+    lines += ["EDUCATION", sep]
+    for e in EDUCATION:
+        lines.append(f"{e['degree']}  |  {e['institution']}  |  {e['period']}")
+        for b in e.get("bullets", []):
+            lines.append(f"  • {b}")
+        lines.append("")
+    lines += ["LANGUAGES", sep]
+    for lang in LANGUAGES:
+        lines.append(f"{lang['language']}: {lang['level']}")
+    lines += ["", "KEY SKILLS", sep, skills]
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def create_cover_letter_pdf(path, job, letter_text):
     story = []
 
     # Sender header
-    story.append(Paragraph(USER_NAME, _name))
-    contact = _contact_line(USER_CITY, USER_PHONE, USER_EMAIL, LINKEDIN)
-    if contact:
-        story.append(Paragraph(contact, _contact))
+    story.append(_header_table(include_github=False))
     story.append(Spacer(1, 6*mm))
 
     # Date and recipient
@@ -409,14 +472,22 @@ Projects:
     return _match_projects(raw)
 
 
+_TONE_MAP = {
+    "formal":  "formal and professional",
+    "direct":  "direct and confident — no filler phrases or empty pleasantries",
+    "startup": "energetic and startup-friendly, slightly informal but still professional",
+}
+
+
 def generate_cover_letter(job, language="English"):
+    tone_desc = _TONE_MAP.get(TONE, _TONE_MAP["formal"])
     prompt = f"""
 Write ONLY a short natural cover letter in {language}.
 
 Rules:
 - No intro text
 - Max 170 words
-- Calm professional tone
+- Tone: {tone_desc}
 - Use paragraphs separated by a blank line
 - No placeholders
 - Only reference skills from the candidate's real skill list below
@@ -435,10 +506,85 @@ Company:
     return ask_llm(prompt)
 
 
+# ── Research & prep prompts ───────────────────────────────────────────────────
+
+_EXPERIENCE_TEXT = "\n".join(
+    f"- {e['role']} at {e['company']}: {'; '.join(e.get('bullets', [])[:3])}"
+    for e in EXPERIENCE
+)
+_PROJECTS_TEXT = "\n".join(
+    f"- {p['name']}: {p['description']}"
+    for p in GITHUB_PROJECTS
+)
+
+
+def generate_company_research(job, output_dir):
+    description = job.get("real_description", job.get("description", ""))[:2000]
+    prompt = f"""You are a job candidate researching a company before an interview.
+
+Based on the job description below, write a 1-page research summary with these sections:
+1. **Product / Service** — what the company builds or sells
+2. **Tech stack signals** — technologies, tools or methodologies mentioned
+3. **Culture signals** — team size, work style, values mentioned
+4. **Why this company** — a short paragraph you could use to personalise a cover letter or prepare for the interview
+
+Rules:
+- Be specific — use details from the job description
+- If something is not mentioned, say "not mentioned in the job description"
+- Use markdown headers
+
+Company: {job.get("company", "")}
+Role: {job.get("title", "")}
+
+Job description:
+{description}
+"""
+    content = ask_llm(prompt)
+    md = f"# Company Research: {job.get('company', '')}\n\n{content}\n"
+    (output_dir / "company_research.md").write_text(md, encoding="utf-8")
+    print("Company research saved.")
+
+
+def generate_interview_prep(job, output_dir):
+    description = job.get("real_description", job.get("description", ""))[:2000]
+    prompt = f"""You are preparing a job candidate for a technical interview.
+
+Generate exactly 5 likely interview questions for this role and provide concise bullet-point answers grounded in the candidate's real experience and projects.
+
+Format each question exactly like this:
+## Q1: [question text]
+- bullet answer point 1
+- bullet answer point 2
+
+Rules:
+- Questions must be realistic for the role and seniority level
+- Answers must reference the candidate's actual projects and experience listed below — no generic answers
+- Be specific and concrete
+
+Candidate experience:
+{_EXPERIENCE_TEXT}
+
+Candidate projects:
+{_PROJECTS_TEXT}
+
+Role: {job.get("title", "")}
+Company: {job.get("company", "")}
+
+Job description:
+{description}
+"""
+    content = ask_llm(prompt)
+    md = f"# Interview Prep: {job.get('title', '')} at {job.get('company', '')}\n\n{content}\n"
+    (output_dir / "interview_prep.md").write_text(md, encoding="utf-8")
+    print("Interview prep saved.")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def save_documents(job):
-    OUTPUTS_DIR.mkdir(exist_ok=True)
+def save_documents(job, output_dir=None):
+    if output_dir is None:
+        output_dir = OUTPUTS_DIR
+        output_dir.mkdir(exist_ok=True)
 
     real_text = get_job_text(job["link"])
     job["real_description"] = real_text if real_text else job["description"]
@@ -455,12 +601,14 @@ def save_documents(job):
     print("Writing cover letter...")
     cover_letter = generate_cover_letter(job, language)
 
-    cv_path     = OUTPUTS_DIR / "cv_custom.pdf"
-    letter_path = OUTPUTS_DIR / "cover_letter.pdf"
+    cv_path     = output_dir / "cv_custom.pdf"
+    cv_txt_path = output_dir / "cv_custom.txt"
+    letter_path = output_dir / "cover_letter.pdf"
 
     create_cv_pdf(cv_path, job, summary, skills, projects)
+    create_cv_txt(cv_txt_path, job, summary, skills, projects)
     create_cover_letter_pdf(letter_path, job, cover_letter)
 
-    print("Documents saved to outputs/")
+    print(f"Documents saved to {output_dir.name}/")
     _open_file(cv_path)
     _open_file(letter_path)

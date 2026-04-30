@@ -1,9 +1,13 @@
 # scraper.py
+import json
 import re
 import html
 import time
+
 import requests
 from bs4 import BeautifulSoup
+
+from config import CACHE_DIR
 
 HEADERS = {
     "User-Agent": (
@@ -14,6 +18,41 @@ HEADERS = {
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
+
+_CACHE_DIR = CACHE_DIR
+_CACHE_TTL = 6 * 3600  # seconds
+
+
+def _get(url, **kwargs):
+    """requests.get with exponential backoff — 3 attempts (1 s, 2 s, 4 s)."""
+    for attempt in range(3):
+        try:
+            resp = requests.get(url, **kwargs)
+            resp.raise_for_status()
+            return resp
+        except requests.RequestException:
+            if attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
+
+
+def _load_cache(name: str):
+    path = _CACHE_DIR / f"{name.lower().replace(' ', '_')}.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if time.time() - data["fetched_at"] < _CACHE_TTL:
+        return data["jobs"]
+    return None
+
+
+def _save_cache(name: str, jobs: list) -> None:
+    _CACHE_DIR.mkdir(exist_ok=True)
+    path = _CACHE_DIR / f"{name.lower().replace(' ', '_')}.json"
+    path.write_text(
+        json.dumps({"fetched_at": time.time(), "jobs": jobs}, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
 
 def _strip_html(text):
@@ -26,8 +65,7 @@ def _strip_html(text):
 
 def search_remotive():
     try:
-        response = requests.get("https://remotive.com/api/remote-jobs", timeout=10)
-        response.raise_for_status()
+        response = _get("https://remotive.com/api/remote-jobs", timeout=10)
         jobs = []
         for item in response.json().get("jobs", []):
             jobs.append({
@@ -46,8 +84,7 @@ def search_remotive():
 
 def search_arbeitnow():
     try:
-        response = requests.get("https://www.arbeitnow.com/api/job-board-api", timeout=10)
-        response.raise_for_status()
+        response = _get("https://www.arbeitnow.com/api/job-board-api", timeout=10)
         jobs = []
         for item in response.json().get("data", []):
             jobs.append({
@@ -66,8 +103,7 @@ def search_arbeitnow():
 
 def search_jobicy():
     try:
-        response = requests.get("https://jobicy.com/api/v0/jobs?count=50", timeout=10)
-        response.raise_for_status()
+        response = _get("https://jobicy.com/api/v0/jobs?count=50", timeout=10)
         jobs = []
         for item in response.json().get("jobs", []):
             jobs.append({
@@ -101,13 +137,12 @@ def search_linkedin():
 
     for query in queries:
         try:
-            resp = requests.get(
+            resp = _get(
                 base_url,
                 params={"keywords": query, "location": "Madrid, Spain", "start": 0, "count": 25},
                 headers=HEADERS,
                 timeout=12,
             )
-            resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
 
             for card in soup.find_all("div", class_="base-card"):
@@ -145,13 +180,12 @@ def search_infojobs():
     May be blocked by Cloudflare on some requests.
     """
     try:
-        resp = requests.get(
+        resp = _get(
             "https://www.infojobs.net/jobsearch/search-results/list.xhtml",
             params={"keyword": "junior python ai datos", "province": "madrid"},
             headers=HEADERS,
             timeout=12,
         )
-        resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         jobs = []
 
@@ -188,13 +222,12 @@ def search_tecnoempleo():
 
     for kw in queries:
         try:
-            resp = requests.get(
+            resp = _get(
                 "https://www.tecnoempleo.com/busqueda-empleo.php",
                 params={"te": kw, "pr": "madrid"},
                 headers=HEADERS,
                 timeout=12,
             )
-            resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
 
             for card in soup.find_all("div", class_=lambda c: c and "col-10" in c):
@@ -228,12 +261,11 @@ def search_tecnoempleo():
 def search_domestika():
     """Scrapes Domestika's jobs section (design/creative/tech roles)."""
     try:
-        resp = requests.get(
+        resp = _get(
             "https://www.domestika.org/es/jobs",
             headers=HEADERS,
             timeout=12,
         )
-        resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         jobs = []
 
@@ -269,13 +301,12 @@ def search_startups_madrid():
     landing.jobs is an EU startup job board with good Madrid coverage.
     """
     try:
-        resp = requests.get(
+        resp = _get(
             "https://landing.jobs/jobs",
             params={"search": "junior", "location_name": "Madrid", "page": 1},
             headers=HEADERS,
             timeout=12,
         )
-        resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         jobs = []
 
@@ -322,9 +353,15 @@ def search_jobs():
     ]
 
     for name, fn in sources:
+        cached = _load_cache(name)
+        if cached is not None:
+            print(f"Fetching from {name}... {len(cached)} jobs (cached)")
+            all_jobs.extend(cached)
+            continue
         print(f"Fetching from {name}...", end=" ", flush=True)
         jobs = fn()
         print(f"{len(jobs)} jobs")
+        _save_cache(name, jobs)
         all_jobs.extend(jobs)
 
     seen = set()

@@ -1,7 +1,7 @@
 import ollama
 import re
 
-MODEL_NAME = "llama3.1:8b"
+MODEL_NAME = "qwen2.5:14b"
 
 
 def clean_text(text):
@@ -49,6 +49,21 @@ def score_with_llm(job, profile):
     if nums:
         return min(10, max(0, int(nums[0]))), raw[:60]
     return 5, raw[:60]
+
+
+def extract_salary(text: str) -> str:
+    """Return salary range string extracted from job description, or '' if not found."""
+    sample = text[:1500]
+    prompt = (
+        "Extract the salary or salary range from this job description. "
+        "Reply with only the salary (e.g. '35.000 – 45.000 € / year' or '$80k–$100k'). "
+        "If no salary is mentioned, reply with exactly: not mentioned\n\n"
+        f"{sample}"
+    )
+    raw = ask_llm(prompt).strip()
+    if "not mentioned" in raw.lower() or len(raw) > 80:
+        return ""
+    return raw
 
 
 def detect_language(text):

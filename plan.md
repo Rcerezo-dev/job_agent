@@ -5,66 +5,191 @@
 ## ✅ Done
 
 - Multi-source scraper: Remotive, Arbeitnow, Jobicy, LinkedIn, InfoJobs, Tecnoempleo, Domestika, landing.jobs
-- Keyword-based job scorer with Madrid/Spain/Europe location boost
+- Keyword-based job scorer + LLM re-scoring (0–10 score with one-line reason)
 - Language detection via Ollama — CV and cover letter written in the job's language
 - AI-generated professional summary, skill selection, and cover letter (Ollama, llama3.1:8b)
 - Skills grounded in real config.py list — model cannot invent skills
-- PDF output with proper formatting: header, sections, dividers, skills chip grid
-- Professional Experience section in PDF (KeepCoding projects + teaching roles)
-- Education section in PDF
-- Personal data in config.py (name, email, city, skills, experience, education)
+- GitHub project filtering ��� LLM picks 2–3 most relevant projects per job offer
+- PDF output: header, sections, experience, education, languages, skills chip grid
+- Personal data loaded from .env — nothing sensitive committed to git
+- Applied jobs log (applied.csv), status CLI, deduplication across runs
 
 ---
 
-## Phase 1 — CV completeness  *(next)*
+## Phase 1 — CV completeness  ✅
 
-### Your items
-- [x] **Languages section** — add `LANGUAGES` list to `config.py` (e.g. `[{"language": "Spanish", "level": "Native"}, {"language": "English", "level": "C1"}]`) and render it in the PDF between Education and Skills
-- [x] **GitHub project filtering** — store your GitHub projects in `config.py` with title + description, then ask the LLM to pick the 2–3 most relevant ones for each job offer and inject them into the CV as a "Selected Projects" section
-
-### My additions
-- [x] **Smarter scorer** — replace the keyword list in `scorer.py` with an LLM call: give it the job description + your profile and get a 0–10 relevance score with a one-line reason. Much more accurate than word matching
-- [x] **Auto-open PDF** — after generating the documents, call `os.startfile()` (Windows) to open the CV automatically so you don't have to navigate to the folder every time
+- [x] Languages section
+- [x] GitHub project filtering
+- [x] Smarter LLM scorer
+- [x] Auto-open PDF after generation
 
 ---
 
-## Phase 2 — Application tracking  *(1–2 weeks)*
+## Phase 2 — Application tracking  ✅
 
-- [x] **Applied jobs log** — when you choose a job and generate the CV, write a row to an `applied.csv` with date, company, role, link, and status (`applied / interview / rejected / offer`). Prevents applying twice and builds a history
-- [x] **Status CLI** — a small `status.py` script that prints a table of your pipeline: how many jobs scraped, how many CVs generated, interview rate, etc.
-- [x] **Deduplication across runs** — compare new scraped jobs against `applied.csv` and `jobs.csv` so already-seen listings don't reappear at the top
+- [x] Applied jobs log (applied.csv)
+- [x] Status CLI (status.py)
+- [x] Deduplication across runs
 
 ---
 
-## Phase 3 — Full automation  *(2–4 weeks)*
+## Phase 3 — Application workspace + dashboard  *(next)*
 
-- [ ] **Email sending** — after generating documents, compose a draft in Gmail (via SMTP or the Gmail MCP already available in this session) with the CV and cover letter attached, addressed to the company's contact if found in the job posting
-- [ ] **Daily job alerts** — schedule the scraper to run every morning, score the new jobs, and send you a summary email with the top 5
-- [ ] **Company research** — when you select a job, run a second LLM call that searches for context about the company (size, product, culture) and appends a "Why this company" paragraph to the cover letter
+### Application folder
+Instead of emailing automatically (applications must be submitted manually
+through each job portal), generate a self-contained folder per application.
+
+**Folder structure:**
+```
+applications/
+  2026-04-30_Factorial_AI-Engineer/
+    job_offer.md          ← full job description, link, source, score, reason
+    company_research.md   ← LLM summary: product, tech stack, culture, size
+    interview_prep.md     ← 5 likely questions + bullet answers from your profile
+    cv_custom.pdf         ← tailored CV (moved here from outputs/)
+    cover_letter.pdf      ← cover letter (moved here from outputs/)
+    notes.md              ← empty template — fill in manually after interviews
+```
+
+- [x] **Application folder** — on job selection, create
+  `applications/YYYY-MM-DD_Company_Role/` and write all files there instead
+  of the flat `outputs/` folder. Update `tracker.py` to store the folder path
+  in `applied.csv`.
+
+- [x] **Company research** — second LLM call on job selection: given company name
+  + job description, generate a 1-page `company_research.md` covering product,
+  tech stack, culture signals, and a "why this company" paragraph you can use
+  to personalise the cover letter or prepare for the interview.
+
+- [x] **Interview prep** — third LLM call: generate `interview_prep.md` with 5
+  likely interview questions for the role + bullet-point answers grounded in
+  your real experience and projects from `config.py`.
+
+### Dashboard (custom frontend)
+A local web UI to track every application — both those generated by the agent
+and ones added manually (e.g. applied directly from a company website).
+Built as a custom frontend (not Streamlit); the backend exposes a small API
+that the UI consumes.
+
+- [x] **Backend API** (`api.py`) — lightweight FastAPI server that reads
+  `applied.csv` and the `applications/` folder tree, and exposes endpoints:
+  - `GET /applications` — returns all applications with status, score, folder path
+  - `PATCH /applications/{id}/status` — updates status in `applied.csv`
+  - `POST /applications` — logs a manually added application, creates folder
+  - `GET /stats` — pipeline counts + conversion rates
+- [ ] **Custom frontend** — designed separately; consumes the API above
 
 ---
 
 ## Phase 4 — Quality & polish  *(ongoing)*
 
-- [ ] **Scraper robustness** — add retry logic with exponential backoff for HTML scrapers; rotate User-Agent; cache results for 6 hours to avoid hammering sites on repeated runs
-- [ ] **Salary extraction** — scan the job description with the LLM and extract salary range if mentioned; show it next to each listing in the terminal and save it in the CSV
-- [ ] **Cover letter tone variants** — add a `TONE` setting in `config.py` (`"formal"` / `"direct"` / `"startup"`) that gets injected into the cover letter prompt
-- [ ] **Multiple output formats** — alongside PDF, write a plain `.txt` version for job portals that don't accept PDFs (InfoJobs, LinkedIn Easy Apply)
-- [ ] **Interview prep** — a fourth document generated per application: 5 likely interview questions for the role + bullet-point answers based on your experience
+- [x] **Scraper robustness** — retry logic with exponential backoff for all scrapers;
+  results cached to `job_agent/cache/` for 6 hours to avoid hammering sites on repeated runs
+- [x] **Salary extraction** — LLM scans the job description and extracts salary range
+  if mentioned; shown in terminal and saved in `applied.csv`
+- [x] **Cover letter tone variants** — `TONE` setting in `config.py`
+  (`"formal"` / `"direct"` / `"startup"`) injected into the cover letter prompt
+- [x] **Plain-text CV export** — `cv_custom.txt` written alongside the PDF for portals
+  that don't accept file uploads (InfoJobs, LinkedIn Easy Apply)
+- [x] **Daily job digest** — `python -m job_agent.digest` writes `digest.md` with
+  the top 5 new offers (keyword-scored only, no LLM) and opens it automatically
+
+---
+
+---
+
+## Agent transformation  *(after Phase 4)*
+
+The current codebase is a scripted pipeline — Python drives the LLM in a fixed
+sequence. The goal of these phases is to invert that: the LLM decides which
+actions to take and in what order, using the existing modules as callable tools.
+
+---
+
+## Phase 5 — Tool wrapping  ✅
+
+- [x] `search_jobs(location, top_n)` — scrapes, keyword-scores, deduplicates, returns list
+- [x] `score_job(title, company, description, ...)` — keyword + LLM score for a single job
+- [x] `fetch_job_page(url)` — returns full job description text
+- [x] `read_applications()` — returns applied.csv history as structured data
+- [x] `generate_cv(title, company, link, ...)` — full document generation, returns folder path
+- [x] `log_application(title, company, link, ...)` — appends to applied.csv
+
+Each tool in `tools/` has a `SCHEMA` dict (Ollama-compatible JSON schema) and a `run()` function.
+
+---
+
+## Phase 6 — LLM upgrade  ✅
+
+- [x] `MODEL_NAME = "qwen2.5:14b"` in `llm_client.py` (was already done)
+- [x] Public API (`ask_llm`, `detect_language`, `score_with_llm`, `extract_salary`) unchanged
+
+---
+
+## Phase 7 — Agent loop  ✅
+
+- [x] `agent.py` — tool-use loop using Ollama's native tool API
+- [x] System prompt includes full candidate profile from `config.py` + today's date
+- [x] Loop runs until the model returns a response with no tool calls (max 20 turns)
+- [x] `main.py` is now a thin CLI: `python main.py` runs agent, `--manual` runs old pipeline
+- [x] Human confirmation before `generate_cv` and `log_application` (skip with `--auto`)
+- [x] ReAct fallback: detects `Action: tool_name({...})` in plain-text output if model drifts
+
+---
+
+## Phase 8 — Memory and feedback
+
+The agent learns from past outcomes across runs.
+
+- [ ] After each run, agent writes a short `agent_memory.md` summary:
+  which jobs/companies responded, which titles matched best, what to avoid
+- [ ] `agent_memory.md` injected into the system prompt on every run (max 500 tokens)
+- [ ] Agent can propose updates to its own search keywords based on outcomes
+- [ ] Status updates in `applied.csv` (interview / offer / rejected) feed back
+  into memory on next run
+
+---
+
+## Phase 9 — Autonomous scheduled runs
+
+- [ ] Scheduled daily scrape — writes `digest.md` with top 5 new jobs
+- [ ] Use Gmail MCP (already connected) to scan inbox for application replies
+  and auto-update status in `applied.csv`
+- [ ] Agent escalates to user only for high-score jobs (≥ 8) or when a reply
+  is detected — everything else runs silently
+
+---
+
+## Stack evolution
+
+| Layer | Now | After Phase 7 |
+|---|---|---|
+| LLM | Ollama llama3.1:8b (local) | Ollama qwen2.5:14b (local, free) |
+| Orchestration | `main.py` fixed pipeline | `agent.py` tool-use loop |
+| Tools | Internal function calls | JSON-schema tools in `tools/` |
+| Memory | `applied.csv` only | CSV + `agent_memory.md` in context |
+| Scheduling | Manual | Cron / scheduled agent |
 
 ---
 
 ## Architecture at a glance
 
 ```
-config.py          ← all personal data, skills, experience, education, projects
+config.py          ← skills, experience, education, projects (no secrets)
+.env               ← personal data: name, email, phone, LinkedIn, GitHub
 scraper.py         ← 8 sources → unified job list
-scorer.py          ← relevance score per job
-main.py            ← orchestrator: scrape → score → rank → pick → generate
-llm_client.py      ← Ollama wrapper (ask_llm, detect_language)
+scorer.py          ← keyword pre-filter + LLM re-scoring
+main.py            ← entry point: runs pipeline today, agent loop after Phase 7
+llm_client.py      ← LLM wrapper (llama3.1:8b now → qwen2.5:14b after Phase 6)
 job_reader.py      ← fetches full job description from URL
-cv_writer.py       ← PDF generation (cv + cover letter)
-outputs/           ← cv_custom.pdf, cover_letter.pdf
+cv_writer.py       ← PDF generation (CV + cover letter)
+tracker.py         ← log_application(), load_applied_links()
+status.py          ← CLI dashboard (pipeline stats + history table)
+api.py             ← (Phase 3) backend API for the custom frontend
+agent.py           ← (Phase 7) agent loop: system prompt + tool registry
+tools/             ← (Phase 5) one file per callable tool with JSON schema
+agent_memory.md    ← (Phase 8) rolling memory injected into system prompt
 jobs.csv           ← full scored job list from last run
-applied.csv        ← (Phase 2) your application history
+applied.csv        ← application history (date, status, folder path…)
+applications/      ← one folder per application with all docs
 ```
