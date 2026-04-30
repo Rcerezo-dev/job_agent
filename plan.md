@@ -33,7 +33,7 @@
 
 ---
 
-## Phase 3 — Application workspace + dashboard  *(next)*
+## Phase 3 — Application workspace + dashboard  ✅
 
 ### Application folder
 Instead of emailing automatically (applications must be submitted manually
@@ -77,7 +77,7 @@ that the UI consumes.
   - `PATCH /applications/{id}/status` — updates status in `applied.csv`
   - `POST /applications` — logs a manually added application, creates folder
   - `GET /stats` — pipeline counts + conversion rates
-- [ ] **Custom frontend** — designed separately; consumes the API above
+- [x] **Custom frontend** — built in Phase 10; React SPA consuming this API
 
 ---
 
@@ -202,6 +202,82 @@ The dashboard is the primary interface for the entire job-search workflow.
 
 ---
 
+## Phase 11 — Bug fixes & robustness  *(next)*
+
+Known issues to fix before relying on this daily.
+
+### Backend
+- [ ] **Concurrent agent lock** — `POST /run/agent` redirects `sys.stdout` globally;
+  if triggered twice simultaneously both streams corrupt each other. Add a threading
+  lock so only one agent run can be active at a time; return 409 if already running.
+- [ ] **Applications tab stale after agent run** — after the streaming terminal
+  shows `[DONE]`, the Applications list still shows old data. The dashboard should
+  auto-refresh `GET /applications` when the agent completes.
+- [ ] **HR reply status not reflected in table** — after classifying a reply in the
+  detail view, the row in the Applications table still shows the old status until the
+  user manually refreshes. Lift status state up or emit a refresh event.
+- [ ] **Gmail GMAIL_USER default** — if `GMAIL_USER` is not set in `.env`, fall back
+  to `USER_EMAIL` automatically so there is no duplicated config.
+- [ ] **Memory update on turn-limit exit** — `update_memory()` is called even when
+  the agent hit the 20-turn limit without doing anything useful. Only call it if at
+  least one tool was executed during the run.
+
+### Frontend
+- [ ] **`start.bat` port conflict** — if port 8000 is already in use (previous server
+  still running), the batch file silently fails. Detect and kill the old process or
+  show a clear error.
+- [ ] **Error states in agent terminal** — Python tracebacks emitted to `stderr` are
+  not captured by `_QueueWriter` (which only intercepts `sys.stdout`). Redirect
+  `sys.stderr` to the same queue so errors appear in the browser terminal.
+- [ ] **Mobile/narrow layout** — sidebar overlaps content below ~900 px. Add a
+  hamburger toggle or collapse the sidebar on small viewports.
+
+---
+
+## Phase 12 — Agentic intelligence upgrade  *(ideas)*
+
+These features turn the tool from a job tracker into a genuine autonomous agent
+that actively manages your job search between runs.
+
+### Smart follow-up system
+- [ ] Track days since each application with no status change
+- [ ] After 7 days, agent auto-drafts a polite follow-up email grounded in the
+  original job offer and your profile; shown in the dashboard for one-click review
+  before sending via Gmail MCP
+- [ ] After 14 days with no reply, status auto-updates to `ghost` and the card
+  is deprioritised
+
+### Rejection pattern analysis
+- [ ] After 5+ rejections, a new `POST /analyze/rejections` endpoint runs an LLM
+  over all rejection emails + the corresponding CVs and cover letters
+- [ ] Returns a structured report: common rejection signals, skill gaps mentioned,
+  tone/format issues — written to `data/rejection_analysis.md` and shown in a new
+  dashboard panel
+- [ ] Agent proposes specific edits to `config.py` skills list or cover letter tone
+
+### Skill gap radar
+- [ ] On each job card and detail page, show a visual skill-gap comparison:
+  required skills extracted from the JD vs your profile in `config.py`
+- [ ] Highlight skills you have (green), skills you're missing (red), and skills
+  that partially match (amber) — so you can decide whether to apply or upskill first
+- [ ] `POST /jobs/skill-gap` — takes a job description, returns the structured diff
+
+### Company deep research before CV generation
+- [ ] Before calling `generate_cv`, scrape the company's website homepage + LinkedIn
+  + any recent news (via `job_reader.py`) and pass a rich context summary to the
+  CV and cover letter prompts
+- [ ] Result: hyper-personalised cover letter that mentions the company's actual
+  product, tech stack, and recent milestones — not generic text
+
+### Application success predictor
+- [ ] After enough history accumulates (10+ applications), train a simple logistic
+  regression on your own data: features = score, source, location, seniority keywords;
+  label = got interview or not
+- [ ] Show predicted interview probability on each new job card before you apply
+- [ ] Retrain automatically after each new outcome is logged
+
+---
+
 ## Stack evolution
 
 | Layer | Now | After Phase 7 |
@@ -241,3 +317,9 @@ data/applied.csv    ← application history (date, status, folder path, salary�
 applications/       ← one folder per application with all docs
 notifications.md    ← escalation log: high-score jobs + detected replies
 ```
+
+bugs so far: 
+I cannot see in the frontend cover letter nor cv
+also, these files are not created in separate folders as they should. 
+when I click "run agent" I dont feel as if it is doing anything. it doesn't show new offers, nor anything
+daily digest tab should do something, but it actually tells me to run code in terminal (which I expect it to do)fix 
