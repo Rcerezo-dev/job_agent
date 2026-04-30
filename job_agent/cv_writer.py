@@ -420,7 +420,7 @@ Rules:
 - Use paragraphs separated by a blank line
 - No placeholders
 - Only reference skills from the candidate's real skill list below
-- End with: Best regards, followed by a blank line, then Rubén Cerezo Cuesta
+- End with: Best regards, followed by a blank line, then {USER_NAME}
 
 Candidate:
 {_CANDIDATE}

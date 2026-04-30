@@ -1,7 +1,10 @@
 # config.py
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).parent
+load_dotenv(BASE_DIR.parent / ".env")
 
 KEYWORDS = [
     "ai engineer junior",
@@ -17,12 +20,12 @@ KEYWORDS = [
 LOCATION = "Madrid"
 
 CSV_FILE = BASE_DIR / "jobs.csv"
-USER_NAME = "Rubén Cerezo Cuesta"
-USER_EMAIL = "r.cerezo26@gmail.com"
-USER_PHONE = "+34 XXX XXX XXX"       # update with your real phone
-USER_CITY = "Madrid, Spain"
-LINKEDIN = "linkedin.com/in/tuperfil"  # update with your real profile
-GITHUB_URL = "github.com/tuusuario"    # update with your real profile
+USER_NAME  = os.getenv("USER_NAME",  "Your Name")
+USER_EMAIL = os.getenv("USER_EMAIL", "")
+USER_PHONE = os.getenv("USER_PHONE", "")
+USER_CITY  = os.getenv("USER_CITY",  "")
+LINKEDIN   = os.getenv("LINKEDIN",   "")
+GITHUB_URL = os.getenv("GITHUB_URL", "")
 
 SKILLS = [
     # ML / Deep Learning
