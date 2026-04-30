@@ -5,6 +5,7 @@ cv.md
 # Generated outputs
 job_agent/outputs/
 job_agent/jobs.csv
+job_agent/applied.csv
 
 # Python
 __pycache__/

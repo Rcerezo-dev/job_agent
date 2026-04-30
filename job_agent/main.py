@@ -2,6 +2,7 @@ import csv
 from scraper import search_jobs
 from scorer import score_job, score_jobs_with_llm
 from cv_writer import save_documents
+from tracker import load_applied_links, log_application
 from config import CSV_FILE
 
 jobs = search_jobs()
@@ -23,6 +24,15 @@ jobs = [
 jobs = score_jobs_with_llm(jobs)
 jobs.sort(key=lambda x: x["score"], reverse=True)
 
+# Deduplication — hide jobs already applied to
+applied_links = load_applied_links()
+already_applied = [j for j in jobs if j["link"] in applied_links]
+jobs = [j for j in jobs if j["link"] not in applied_links]
+
+if already_applied:
+    print(f"({len(already_applied)} previously applied job(s) hidden — run status.py to review)\n")
+
+# Save full scored list to CSV
 with open(CSV_FILE, "w", newline="", encoding="utf-8") as file:
     writer = csv.DictWriter(
         file,
@@ -32,7 +42,7 @@ with open(CSV_FILE, "w", newline="", encoding="utf-8") as file:
     writer.writerows(jobs)
 
 top = jobs[:15]
-print(f"\nTOP OFFERS ({len(jobs)} relevant jobs found):\n")
+print(f"TOP OFFERS ({len(jobs)} new relevant jobs):\n")
 
 for i, job in enumerate(top, start=1):
     print("-" * 40)
@@ -48,6 +58,7 @@ try:
     if 1 <= choice <= len(top):
         selected_job = top[choice - 1]
         save_documents(selected_job)
+        log_application(selected_job)
     else:
         print("Number out of range.")
 except ValueError:

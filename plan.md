@@ -30,9 +30,9 @@
 
 ## Phase 2 — Application tracking  *(1–2 weeks)*
 
-- [ ] **Applied jobs log** — when you choose a job and generate the CV, write a row to an `applied.csv` with date, company, role, link, and status (`applied / interview / rejected / offer`). Prevents applying twice and builds a history
-- [ ] **Status CLI** — a small `status.py` script that prints a table of your pipeline: how many jobs scraped, how many CVs generated, interview rate, etc.
-- [ ] **Deduplication across runs** — compare new scraped jobs against `applied.csv` and `jobs.csv` so already-seen listings don't reappear at the top
+- [x] **Applied jobs log** — when you choose a job and generate the CV, write a row to an `applied.csv` with date, company, role, link, and status (`applied / interview / rejected / offer`). Prevents applying twice and builds a history
+- [x] **Status CLI** — a small `status.py` script that prints a table of your pipeline: how many jobs scraped, how many CVs generated, interview rate, etc.
+- [x] **Deduplication across runs** — compare new scraped jobs against `applied.csv` and `jobs.csv` so already-seen listings don't reappear at the top
 
 ---
 
