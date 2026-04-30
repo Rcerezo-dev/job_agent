@@ -137,15 +137,15 @@ Each tool in `tools/` has a `SCHEMA` dict (Ollama-compatible JSON schema) and a 
 
 ---
 
-## Phase 8 — Memory and feedback
+## Phase 8 — Memory and feedback  ✅
 
 The agent learns from past outcomes across runs.
 
-- [ ] After each run, agent writes a short `agent_memory.md` summary:
+- [x] After each run, agent writes a short `agent_memory.md` summary:
   which jobs/companies responded, which titles matched best, what to avoid
-- [ ] `agent_memory.md` injected into the system prompt on every run (max 500 tokens)
-- [ ] Agent can propose updates to its own search keywords based on outcomes
-- [ ] Status updates in `applied.csv` (interview / offer / rejected) feed back
+- [x] `agent_memory.md` injected into the system prompt on every run (max 500 tokens)
+- [x] Agent can propose updates to its own search keywords based on outcomes
+- [x] Status updates in `applied.csv` (interview / offer / rejected) feed back
   into memory on next run
 
 ---

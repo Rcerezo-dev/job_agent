@@ -16,6 +16,7 @@ import ollama
 
 from llm_client import MODEL_NAME
 from config import SKILLS, EXPERIENCE, GITHUB_PROJECTS
+from memory import load_memory, update_memory
 import tools as _tools
 
 _REGISTRY = _tools.REGISTRY
@@ -33,8 +34,13 @@ _PROJECTS_STR = "\n".join(
 
 
 def _build_system_prompt() -> str:
+    memory = load_memory()
+    memory_section = (
+        f"\n=== AGENT MEMORY (from previous runs) ===\n{memory}\n"
+        if memory else ""
+    )
     return f"""You are a job-search agent acting on behalf of a candidate. Today is {date.today().isoformat()}.
-
+{memory_section}
 === CANDIDATE PROFILE ===
 Skills: {_SKILLS_STR}
 
@@ -50,7 +56,7 @@ Projects:
 - Optionally call fetch_job_page or score_job to evaluate a promising listing more deeply.
 - Call generate_cv for the best match (this requires human confirmation unless --auto).
 - Call log_application after generating a CV (also requires confirmation).
-- Finish with a brief plain-text summary: which job you chose and why.
+- Finish with a brief plain-text summary: which job you chose and why, and note any keyword or search adjustments you'd suggest based on past outcomes.
 - Do not invent job listings — only work with results from the tools.
 """
 
@@ -133,6 +139,8 @@ def run(goal: str, auto: bool = False) -> None:
             # No tool calls — agent is done
             print("\n=== Agent report ===")
             print(content)
+            print("\nUpdating agent memory...")
+            update_memory(content)
             return
 
         for tc in tool_calls:
@@ -149,3 +157,4 @@ def run(goal: str, auto: bool = False) -> None:
             messages.append({"role": "tool", "content": result})
 
     print("Agent reached the turn limit without finishing.")
+    update_memory()
