@@ -159,49 +159,46 @@ The agent learns from past outcomes across runs.
 
 ---
 
-## Phase 10 — Integrated web dashboard  *(next)*
+## Phase 10 — Integrated web dashboard  ✅
 
-Replace the current multi-file static frontend with a single self-contained
-application that is the primary interface for the entire job-search workflow.
+The dashboard is the primary interface for the entire job-search workflow.
 
 ### Launcher
-- [ ] `start.bat` at repo root — starts the API server and opens the dashboard
+- [x] `start.bat` at repo root — starts the API server and opens the dashboard
   in one double-click (no terminal commands needed)
 
-### Single-file frontend (`frontend/index.html`)
-All CSS and JS inlined so the file opens with no build step or extra assets.
-
 ### Agent integration
-- [ ] "Run agent" button triggers `POST /run` on the API, which starts the
-  scrape + keyword score + LLM re-score pipeline in the background
-- [ ] Results panel shows only jobs with score ≥ 8, sorted by score
-- [ ] Each job card shows: title, company, score, reason, salary, link
+- [x] **Agent tab** — editable goal field + "Run agent" button streams the real
+  `agent.py` loop live to a terminal panel in the browser (SSE via `POST /run/agent`);
+  the LLM decides which tools to call autonomously (`auto=True`)
+- [x] **Pipeline tab** — fast alternative: `POST /run` scrapes + keyword scores +
+  LLM re-scores top 25, returns job cards for score ≥ 8 with manual selection
 
 ### Document generation
-- [ ] Clicking a job card calls `POST /applications` and triggers CV + cover
-  letter generation via the existing `generate_cv` tool
-- [ ] Generated PDF paths shown in the card; clicking opens the file
+- [x] Each pipeline job card has a **Generate CV + cover letter** button →
+  `POST /generate` creates the full application folder (CV PDF, cover letter,
+  company research, interview prep) and logs to `applied.csv`
 
 ### HR reply inbox
-- [ ] Each application has a free-text box to paste the HR reply
-- [ ] On save, the agent classifies the reply:
-  - Negative (rejection) → status updated to `rejected`, card greyed out
-  - Positive with interview mention → status updated to `interview`,
-    event created in Google Calendar via the MCP integration
-- [ ] Calendar event includes: company, role, date/time extracted from reply
+- [x] Each application detail page has a free-text box to paste the HR reply
+- [x] "Classify reply" calls `POST /applications/{id}/reply` → LLM classifies
+  as `interview`, `offer`, or `rejected` → status badge updates live
+- [x] Interview result → **Add to Google Calendar** button (pre-filled URL)
+- [ ] Google Calendar native API integration (currently a URL link only;
+  full MCP/OAuth integration deferred)
 
 ### Mock interview prep chatbot
-- [ ] Each job card (status `interview`) has a "Prep" button
-- [ ] Opens an in-page chat panel backed by `POST /chat`
-- [ ] First message: loads `interview_prep.md` from the application folder
-  as context; subsequent messages are free-form Q&A grounded in the
-  candidate's real profile (`config.py`) and the specific job description
+- [x] Every application detail page has a **Start prep** toggle
+- [x] Chat panel backed by `POST /chat` — Ollama LLM grounded in
+  `interview_prep.md` from the application folder; keeps last 8 messages
+  for context; auto-scrolls; Enter to send
 
-### New API endpoints needed
-- `POST /run` — trigger agent scrape pipeline, return scored jobs ≥ 8
-- `POST /applications/{id}/reply` — classify HR reply, update status,
-  optionally create calendar event
-- `POST /chat` — streaming chat endpoint for mock interview prep
+### API endpoints added
+- `POST /run` — pipeline: scrape + LLM score, return jobs ≥ 8
+- `POST /run/agent` — real agent: SSE stream of `agent.py` stdout
+- `POST /generate` — generate CV + cover letter + research + interview prep
+- `POST /applications/{id}/reply` — LLM-classify HR reply, update status
+- `POST /chat` — mock interview chatbot
 
 ---
 
@@ -220,21 +217,27 @@ All CSS and JS inlined so the file opens with no build step or extra assets.
 ## Architecture at a glance
 
 ```
-config.py          ← skills, experience, education, projects (no secrets)
-.env               ← personal data: name, email, phone, LinkedIn, GitHub
-scraper.py         ← 8 sources → unified job list
-scorer.py          ← keyword pre-filter + LLM re-scoring
-main.py            ← entry point: runs pipeline today, agent loop after Phase 7
-llm_client.py      ← LLM wrapper (llama3.1:8b now → qwen2.5:14b after Phase 6)
-job_reader.py      ← fetches full job description from URL
-cv_writer.py       ← PDF generation (CV + cover letter)
-tracker.py         ← log_application(), load_applied_links()
-status.py          ← CLI dashboard (pipeline stats + history table)
-api.py             ← (Phase 3) backend API for the custom frontend
-agent.py           ← (Phase 7) agent loop: system prompt + tool registry
-tools/             ← (Phase 5) one file per callable tool with JSON schema
-agent_memory.md    ← (Phase 8) rolling memory injected into system prompt
-jobs.csv           ← full scored job list from last run
-applied.csv        ← application history (date, status, folder path…)
-applications/      ← one folder per application with all docs
+config.py           ← skills, experience, education, projects (no secrets)
+.env                ← personal data: name, email, phone, LinkedIn, GitHub, Gmail
+scraper.py          ← 8 sources → unified job list
+scorer.py           ← keyword pre-filter + LLM re-scoring (Ollama)
+main.py             ← CLI entry: --agent (default) | --manual | --monitor
+llm_client.py       ← Ollama wrapper (qwen2.5:14b)
+job_reader.py       ← fetches full job description HTML from URL
+cv_writer.py        ← ReportLab PDF: CV + cover letter (language-aware)
+tracker.py          ← log_application(), load_applied_links(), create_app_folder()
+status.py           ← terminal dashboard (pipeline stats + history table)
+api.py              ← FastAPI server (all endpoints for the web dashboard)
+agent.py            ← agent loop: system prompt + tool registry + memory inject
+memory.py           ← reads applied.csv → LLM writes agent_memory.md
+gmail_monitor.py    ← IMAP scan for HR replies → auto-updates applied.csv
+scheduled_run.py    ← silent daily runner: digest + Gmail scan + escalation
+digest.py           ← keyword-only top-5 digest → digest.md
+tools/              ← one file per callable tool with Ollama JSON schema
+frontend/           ← React dashboard (index.html + CSS)
+start.bat           ← one-click launcher: API server + browser
+data/agent_memory.md ← rolling memory injected into agent system prompt each run
+data/applied.csv    ← application history (date, status, folder path, salary…)
+applications/       ← one folder per application with all docs
+notifications.md    ← escalation log: high-score jobs + detected replies
 ```
