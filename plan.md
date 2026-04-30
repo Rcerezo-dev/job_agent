@@ -159,6 +159,52 @@ The agent learns from past outcomes across runs.
 
 ---
 
+## Phase 10 — Integrated web dashboard  *(next)*
+
+Replace the current multi-file static frontend with a single self-contained
+application that is the primary interface for the entire job-search workflow.
+
+### Launcher
+- [ ] `start.bat` at repo root — starts the API server and opens the dashboard
+  in one double-click (no terminal commands needed)
+
+### Single-file frontend (`frontend/index.html`)
+All CSS and JS inlined so the file opens with no build step or extra assets.
+
+### Agent integration
+- [ ] "Run agent" button triggers `POST /run` on the API, which starts the
+  scrape + keyword score + LLM re-score pipeline in the background
+- [ ] Results panel shows only jobs with score ≥ 8, sorted by score
+- [ ] Each job card shows: title, company, score, reason, salary, link
+
+### Document generation
+- [ ] Clicking a job card calls `POST /applications` and triggers CV + cover
+  letter generation via the existing `generate_cv` tool
+- [ ] Generated PDF paths shown in the card; clicking opens the file
+
+### HR reply inbox
+- [ ] Each application has a free-text box to paste the HR reply
+- [ ] On save, the agent classifies the reply:
+  - Negative (rejection) → status updated to `rejected`, card greyed out
+  - Positive with interview mention → status updated to `interview`,
+    event created in Google Calendar via the MCP integration
+- [ ] Calendar event includes: company, role, date/time extracted from reply
+
+### Mock interview prep chatbot
+- [ ] Each job card (status `interview`) has a "Prep" button
+- [ ] Opens an in-page chat panel backed by `POST /chat`
+- [ ] First message: loads `interview_prep.md` from the application folder
+  as context; subsequent messages are free-form Q&A grounded in the
+  candidate's real profile (`config.py`) and the specific job description
+
+### New API endpoints needed
+- `POST /run` — trigger agent scrape pipeline, return scored jobs ≥ 8
+- `POST /applications/{id}/reply` — classify HR reply, update status,
+  optionally create calendar event
+- `POST /chat` — streaming chat endpoint for mock interview prep
+
+---
+
 ## Stack evolution
 
 | Layer | Now | After Phase 7 |
