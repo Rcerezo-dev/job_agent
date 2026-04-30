@@ -1,9 +1,15 @@
+import asyncio
 import csv
+import io
+import json
+import queue as _queue
 import sys
+import threading
 from pathlib import Path
 from typing import List
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -223,3 +229,72 @@ def chat(body: ChatBody):
 
     resp = ollama.chat(model=MODEL_NAME, messages=messages)
     return {"reply": resp["message"]["content"].strip()}
+
+
+# ── Real agent streaming ───────────────────────────────────────────────────────
+
+_DEFAULT_AGENT_GOAL = (
+    "Find the best AI/ML engineering jobs in Madrid today and prepare "
+    "application documents for the top match."
+)
+
+
+class AgentGoal(BaseModel):
+    goal: str = _DEFAULT_AGENT_GOAL
+
+
+class _QueueWriter(io.TextIOBase):
+    """Captures print() calls from the agent thread and forwards them to a queue."""
+    def __init__(self, q: _queue.Queue):
+        self._q = q
+
+    def write(self, s: str) -> int:
+        if s:
+            self._q.put(s)
+        return len(s)
+
+    def flush(self):
+        pass
+
+
+@app.post("/run/agent")
+async def run_agent_stream(body: AgentGoal = None):
+    """
+    Run the real agent loop (agent.py) with auto=True and stream every print()
+    line to the client as server-sent events.
+    """
+    goal = body.goal if body else _DEFAULT_AGENT_GOAL
+    q: _queue.Queue = _queue.Queue()
+
+    def _run():
+        old_stdout = sys.stdout
+        sys.stdout = _QueueWriter(q)
+        try:
+            from agent import run as _agent_run
+            _agent_run(goal, auto=True)
+        except Exception as exc:
+            q.put(f"\n[Error] {exc}\n")
+        finally:
+            sys.stdout = old_stdout
+            q.put(None)  # sentinel — agent is done
+
+    threading.Thread(target=_run, daemon=True).start()
+
+    async def generate():
+        yield "data: \n\n"  # keep-alive first frame
+        while True:
+            try:
+                line = q.get_nowait()
+            except _queue.Empty:
+                await asyncio.sleep(0.05)
+                continue
+            if line is None:
+                yield "data: [DONE]\n\n"
+                break
+            yield f"data: {json.dumps(line)}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
