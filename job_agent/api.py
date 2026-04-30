@@ -1,6 +1,7 @@
 import csv
 import sys
 from pathlib import Path
+from typing import List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -95,3 +96,130 @@ def get_stats():
         "interview_rate_pct": round(counts["interview"] / total * 100, 1) if total else 0,
         "offer_rate_pct": round(counts["offer"] / total * 100, 1) if total else 0,
     }
+
+
+# ── Phase 10 endpoints ─────────────────────────────────────────────────────────
+
+@app.post("/run")
+def run_search():
+    """Scrape all sources, keyword-score, LLM re-score top 25, return jobs ≥ 8."""
+    from scraper import search_jobs as _scrape
+    from scorer import score_job as _keyword_score, score_jobs_with_llm
+    from tracker import load_applied_links
+
+    jobs = _scrape()
+    for j in jobs:
+        j["score"] = _keyword_score(j)
+
+    applied = load_applied_links()
+    jobs = [
+        j for j in jobs
+        if j["score"] > 0
+        and j["link"] not in applied
+        and ("madrid" in (j.get("location") or "").lower()
+             or "spain" in (j.get("location") or "").lower())
+    ]
+    jobs.sort(key=lambda x: x["score"], reverse=True)
+
+    jobs = score_jobs_with_llm(jobs, max_jobs=25)
+
+    high = [j for j in jobs if j.get("score", 0) >= 8]
+    high.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return {"jobs": high, "total_scraped": len(jobs)}
+
+
+class GenerateBody(BaseModel):
+    title: str
+    company: str
+    link: str
+    description: str = ""
+    location: str = ""
+    source: str = ""
+    score: float = 0
+    reason: str = ""
+
+
+@app.post("/generate", status_code=201)
+def generate_docs(body: GenerateBody):
+    """Generate CV + cover letter + research + interview prep for a job."""
+    from tools.generate import run as _gen
+    from tools.log import run as _log
+
+    result = _gen(**body.model_dump())
+    _log(
+        title=body.title, company=body.company, link=body.link,
+        location=body.location, source=body.source, score=body.score,
+        reason=body.reason, folder_path=result.get("folder", ""),
+    )
+    return result
+
+
+class ReplyBody(BaseModel):
+    text: str
+
+
+@app.post("/applications/{app_id}/reply")
+def handle_reply(app_id: int, body: ReplyBody):
+    """Classify an HR reply with the LLM and update the application status."""
+    from llm_client import ask_llm
+
+    prompt = (
+        "Classify this HR email reply with exactly one word: "
+        "'interview', 'offer', or 'rejected'.\n\n"
+        f"Reply text:\n{body.text[:800]}"
+    )
+    word = ask_llm(prompt).strip().lower().split()[0] if body.text.strip() else "rejected"
+    status = word if word in ("interview", "offer", "rejected") else "rejected"
+
+    rows = _read_rows()
+    if app_id < 0 or app_id >= len(rows):
+        raise HTTPException(404, "Application not found")
+    rows[app_id]["status"] = status
+    _write_rows(rows)
+    return {"id": app_id, "status": status}
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatBody(BaseModel):
+    app_id: int
+    message: str
+    history: List[ChatMessage] = []
+
+
+@app.post("/chat")
+def chat(body: ChatBody):
+    """Mock interview chatbot grounded in the application's interview_prep.md."""
+    import ollama
+    from llm_client import MODEL_NAME
+
+    rows = _read_rows()
+    if body.app_id < 0 or body.app_id >= len(rows):
+        raise HTTPException(404, "Application not found")
+
+    row = rows[body.app_id]
+    context = ""
+    folder = row.get("folder_path", "")
+    if folder:
+        prep = Path(folder) / "interview_prep.md"
+        if prep.exists():
+            context = prep.read_text(encoding="utf-8")[:2000]
+
+    system = (
+        f"You are a mock interviewer for a junior AI engineer candidate.\n"
+        f"Role: {row.get('title')} at {row.get('company')}\n"
+        + (f"\nInterview prep notes:\n{context}\n" if context else "")
+        + "\nAsk realistic questions and give brief, constructive feedback. "
+        "Keep every response under 80 words."
+    )
+
+    messages = [{"role": "system", "content": system}]
+    for m in body.history[-8:]:
+        messages.append({"role": m.role, "content": m.content})
+    messages.append({"role": "user", "content": body.message})
+
+    resp = ollama.chat(model=MODEL_NAME, messages=messages)
+    return {"reply": resp["message"]["content"].strip()}

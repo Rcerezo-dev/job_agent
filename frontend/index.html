@@ -13,7 +13,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
 // ── API client ──────────────────────────────────────────────────────
 const API_BASE = "http://localhost:8000";
@@ -45,6 +45,38 @@ const api = {
       body: JSON.stringify(body),
     });
     if (!r.ok) throw new Error(`POST /applications ${r.status}`);
+    return r.json();
+  },
+  async run() {
+    const r = await fetch(`${API_BASE}/run`, { method: "POST" });
+    if (!r.ok) throw new Error(`POST /run ${r.status}`);
+    return r.json();
+  },
+  async generate(job) {
+    const r = await fetch(`${API_BASE}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(job),
+    });
+    if (!r.ok) throw new Error(`POST /generate ${r.status}`);
+    return r.json();
+  },
+  async submitReply(id, text) {
+    const r = await fetch(`${API_BASE}/applications/${id}/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!r.ok) throw new Error(`POST /applications/${id}/reply ${r.status}`);
+    return r.json();
+  },
+  async chat(app_id, message, history) {
+    const r = await fetch(`${API_BASE}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ app_id, message, history }),
+    });
+    if (!r.ok) throw new Error(`POST /chat ${r.status}`);
     return r.json();
   },
 };
@@ -118,6 +150,16 @@ const IconRefresh = () => (
 const IconWarn = () => (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
     <path d="M8 2L1.5 13.5h13z"/><line x1="8" y1="6.5" x2="8" y2="9.5"/><circle cx="8" cy="11.5" r=".5" fill="currentColor"/>
+  </svg>
+);
+const IconSend = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M14 2L2 7l5 2 2 5z"/><line x1="7" y1="9" x2="14" y2="2"/>
+  </svg>
+);
+const IconCalendar = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <rect x="1.5" y="3" width="13" height="11" rx="1.5"/><line x1="5" y1="1.5" x2="5" y2="4.5"/><line x1="11" y1="1.5" x2="11" y2="4.5"/><line x1="1.5" y1="6.5" x2="14.5" y2="6.5"/>
   </svg>
 );
 
@@ -484,9 +526,15 @@ function ApplicationsPage({ onSelect }) {
 }
 
 // ── Detail Page ───────────────────────────────────────────────────────
-function DetailPage({ app, onBack }) {
-  if (!app) return null;
+function DetailPage({ app: initialApp, onBack }) {
+  if (!initialApp) return null;
+  const [app, setApp] = useState(initialApp);
+  const [showChat, setShowChat] = useState(false);
   const folderName = app.folder_path ? app.folder_path.split(/[/\\]/).pop() : null;
+
+  function handleStatusUpdate(newStatus) {
+    setApp(prev => ({ ...prev, status: newStatus }));
+  }
 
   return (
     <div className="page-body">
@@ -524,6 +572,9 @@ function DetailPage({ app, onBack }) {
               </div>
             </div>
           )}
+
+          <HRReplySection app={app} onStatusUpdate={handleStatusUpdate} />
+
           <div className="detail-section">
             <div className="detail-section-title">Application folder</div>
             {folderName ? (
@@ -545,6 +596,17 @@ function DetailPage({ app, onBack }) {
               <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>No folder path recorded for this application.</div>
             )}
           </div>
+
+          <div className="detail-section">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showChat ? "12px" : "0" }}>
+              <div className="detail-section-title" style={{ margin: 0 }}>Mock interview prep</div>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowChat(v => !v)} style={{ gap: "5px" }}>
+                <IconBrain /> {showChat ? "Hide" : "Start prep"}
+              </button>
+            </div>
+            {showChat && <MockInterviewChat appId={app.id} />}
+          </div>
+
           {app.link && app.link !== "#" && (
             <div className="detail-section">
               <div className="detail-section-title">Actions</div>
@@ -561,41 +623,228 @@ function DetailPage({ app, onBack }) {
   );
 }
 
+// ── Job result card (used in AgentPage) ───────────────────────────────
+function JobResultCard({ job, onGenerate, generating, result }) {
+  return (
+    <div style={{
+      background: "var(--color-surface-raised)", borderRadius: "var(--radius-lg)",
+      border: "1px solid var(--color-border)", padding: "16px 20px",
+      boxShadow: "var(--shadow-xs)", display: "flex", flexDirection: "column", gap: "10px",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+        <div>
+          <div style={{ fontWeight: 600, color: "var(--color-text-primary)", fontSize: "var(--text-base)" }}>{job.title}</div>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>{job.company}{job.location ? ` · ${job.location}` : ""}</div>
+        </div>
+        <div style={{ ...scoreStyle(job.score), width: "44px", height: "44px", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "var(--text-lg)", flexShrink: 0 }}>
+          {job.score}
+        </div>
+      </div>
+      {job.reason && (
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)", fontStyle: "italic" }}>{job.reason}</div>
+      )}
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+        {job.link && (
+          <a className="btn btn-secondary btn-sm" href={job.link} target="_blank" rel="noopener noreferrer" style={{ gap: "5px" }}>
+            <IconExternal /> View job
+          </a>
+        )}
+        {!result ? (
+          <button className="btn btn-primary btn-sm" onClick={onGenerate} disabled={generating} style={{ gap: "5px" }}>
+            {generating ? "Generating…" : <><IconDoc /> Generate CV + cover letter</>}
+          </button>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "var(--text-sm)", color: "var(--color-success)" }}>
+            <IconCheck /> Saved to <code style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)" }}>{result.folder?.split(/[/\\]/).pop()}/</code>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Mock interview chatbot ─────────────────────────────────────────────
+function MockInterviewChat({ appId }) {
+  const [messages, setMessages] = useState([{
+    role: "assistant",
+    content: "Hi! I'm your mock interviewer. Tell me about yourself, or ask me to fire a question.",
+  }]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  async function send() {
+    if (!input.trim() || loading) return;
+    const userMsg = { role: "user", content: input.trim() };
+    const next = [...messages, userMsg];
+    setMessages(next);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await api.chat(appId, userMsg.content, messages.slice(-6));
+      setMessages(prev => [...prev, { role: "assistant", content: res.reply }]);
+    } catch (e) {
+      setMessages(prev => [...prev, { role: "assistant", content: "Error: " + e.message }]);
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div style={{ border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+      <div style={{ height: "260px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", padding: "14px" }}>
+        {messages.map((m, i) => (
+          <div key={i} style={{
+            alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+            maxWidth: "85%", padding: "8px 12px", borderRadius: "12px",
+            background: m.role === "user" ? "var(--terra-100)" : "var(--sand-100)",
+            fontSize: "var(--text-sm)", color: "var(--color-text-body)", lineHeight: "var(--leading-relaxed)",
+            border: `1px solid ${m.role === "user" ? "var(--terra-200)" : "var(--color-border)"}`,
+          }}>{m.content}</div>
+        ))}
+        {loading && <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", fontStyle: "italic" }}>Thinking…</div>}
+        <div ref={bottomRef} />
+      </div>
+      <div style={{ display: "flex", gap: "8px", padding: "10px 14px", borderTop: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
+        <input className="field-input" style={{ flex: 1 }} placeholder="Your answer or a question…"
+          value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && send()} />
+        <button className="btn btn-primary btn-sm" onClick={send} disabled={loading || !input.trim()} style={{ gap: "5px" }}>
+          <IconSend /> Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── HR reply section ───────────────────────────────────────────────────
+function HRReplySection({ app, onStatusUpdate }) {
+  const [text, setText] = useState("");
+  const [classifying, setClassifying] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  async function classify() {
+    if (!text.trim()) return;
+    setClassifying(true); setError(null);
+    try {
+      const r = await api.submitReply(app.id, text);
+      setResult(r);
+      onStatusUpdate(r.status);
+    } catch (e) { setError(e.message); }
+    finally { setClassifying(false); }
+  }
+
+  const calendarUrl = result?.status === "interview"
+    ? `https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent("Interview — " + app.company)}&details=${encodeURIComponent("Role: " + app.title + "\n" + (app.link || ""))}&location=TBD`
+    : null;
+
+  const statusColors = { interview: "var(--color-warning)", offer: "var(--color-success)", rejected: "var(--color-danger)" };
+
+  return (
+    <div className="detail-section">
+      <div className="detail-section-title">HR reply</div>
+      <textarea className="field-input" style={{ width: "100%", minHeight: "96px", resize: "vertical", fontFamily: "inherit", fontSize: "var(--text-sm)" }}
+        placeholder="Paste the HR reply here…"
+        value={text} onChange={e => setText(e.target.value)} />
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "8px" }}>
+        <button className="btn btn-primary btn-sm" onClick={classify} disabled={classifying || !text.trim()}>
+          {classifying ? "Classifying…" : "Classify reply"}
+        </button>
+        {error && <span style={{ fontSize: "var(--text-xs)", color: "var(--color-danger)" }}>{error}</span>}
+      </div>
+      {result && (
+        <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "var(--radius-md)", background: "var(--sand-100)", border: "1px solid var(--color-border)" }}>
+          <div style={{ fontSize: "var(--text-sm)", marginBottom: "8px" }}>
+            Status updated to <strong style={{ color: statusColors[result.status] }}>{result.status}</strong>
+          </div>
+          {result.status === "rejected" && (
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>Application marked as closed.</div>
+          )}
+          {result.status === "interview" && calendarUrl && (
+            <a className="btn btn-secondary btn-sm" href={calendarUrl} target="_blank" rel="noopener noreferrer" style={{ gap: "5px" }}>
+              <IconCalendar /> Add interview to Google Calendar
+            </a>
+          )}
+          {result.status === "offer" && (
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--color-success)", fontWeight: 500 }}>Congratulations! Offer received.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Agent Page ────────────────────────────────────────────────────────
 function AgentPage() {
+  const [running, setRunning] = useState(false);
+  const [jobs, setJobs] = useState(null);
+  const [error, setError] = useState(null);
+  const [generating, setGenerating] = useState(null);
+  const [results, setResults] = useState({});
+
+  async function handleRun() {
+    setRunning(true); setError(null); setJobs(null); setResults({});
+    try {
+      const data = await api.run();
+      setJobs(data.jobs || []);
+    } catch (e) { setError(e.message); }
+    finally { setRunning(false); }
+  }
+
+  async function handleGenerate(job, idx) {
+    setGenerating(idx);
+    try {
+      const r = await api.generate(job);
+      setResults(prev => ({ ...prev, [idx]: r }));
+    } catch (e) { setError(e.message); }
+    finally { setGenerating(null); }
+  }
+
   return (
     <div className="page-body">
-      <div style={{ maxWidth: "680px" }}>
-        <div style={{ background: "var(--color-surface-raised)", borderRadius: "var(--radius-xl)", border: "1px solid var(--color-border)", overflow: "hidden", boxShadow: "var(--shadow-md)" }}>
-          <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--color-border)", background: "var(--sand-100)" }}>
-            <div style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--color-text-primary)", marginBottom: "6px" }}>Agent is CLI-only for now</div>
+      <div style={{ maxWidth: "700px", display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button className="btn btn-primary" onClick={handleRun} disabled={running} style={{ gap: "6px" }}>
+            <IconPlay /> {running ? "Searching…" : "Run agent — find jobs ≥ 8/10"}
+          </button>
+          {running && (
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
+              Scraping all sources + LLM scoring top 25… (30–60 s)
+            </span>
+          )}
+        </div>
+
+        {error && <ErrorBanner message={error} />}
+
+        {jobs !== null && jobs.length === 0 && (
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)", padding: "16px 0" }}>
+            No jobs scored ≥ 8 today. Try again tomorrow or broaden your keywords in <code style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)" }}>config.py</code>.
+          </div>
+        )}
+
+        {(jobs || []).map((job, idx) => (
+          <JobResultCard
+            key={idx}
+            job={job}
+            onGenerate={() => handleGenerate(job, idx)}
+            generating={generating === idx}
+            result={results[idx]}
+          />
+        ))}
+
+        {!running && !jobs && (
+          <div style={{ background: "var(--color-surface-raised)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", padding: "18px 22px", boxShadow: "var(--shadow-xs)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <div style={{ color: "var(--terra-400)", display: "flex" }}><IconBrain /></div>
+              <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--color-text-primary)" }}>Agent memory</div>
+              <div style={{ marginLeft: "auto", fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>agent_memory.md</div>
+            </div>
             <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", lineHeight: "var(--leading-relaxed)" }}>
-              Run the agent from your terminal. Results will appear in the Applications tab automatically.
+              Memory is written after each run and injected into the next run's system prompt — the agent learns from your past outcomes.
             </div>
           </div>
-          <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", background: "var(--ink-900)", color: "var(--sand-300)", lineHeight: "1.9" }}>
-            <div style={{ color: "var(--sand-400)" }}># Standard pipeline</div>
-            <div>python main.py</div>
-            <div style={{ marginTop: "12px", color: "var(--sand-400)" }}># Agent loop (LLM drives tool calls)</div>
-            <div>python main.py  <span style={{ color: "var(--terra-300)" }}># uses agent.py internally</span></div>
-            <div style={{ marginTop: "12px", color: "var(--sand-400)" }}># Skip confirmation prompts</div>
-            <div>python main.py --auto</div>
-            <div style={{ marginTop: "12px", color: "var(--sand-400)" }}># Daily digest (top 5, no LLM)</div>
-            <div>python -m job_agent.digest</div>
-            <div style={{ marginTop: "12px", color: "var(--sand-400)" }}># Start API server (this dashboard)</div>
-            <div>uvicorn job_agent.api:app --reload</div>
-          </div>
-        </div>
-        <div style={{ marginTop: "16px", background: "var(--color-surface-raised)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", padding: "18px 22px", boxShadow: "var(--shadow-xs)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-            <div style={{ color: "var(--terra-400)", display: "flex" }}><IconBrain /></div>
-            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--color-text-primary)" }}>Agent memory</div>
-            <div style={{ marginLeft: "auto", fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>agent_memory.md</div>
-          </div>
-          <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", lineHeight: "var(--leading-relaxed)" }}>
-            Memory is written to <code style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", background: "var(--sand-100)", padding: "1px 5px", borderRadius: "3px" }}>agent_memory.md</code> after each run and injected into the agent's system prompt on the next run.
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
